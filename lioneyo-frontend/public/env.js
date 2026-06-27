@@ -5,7 +5,7 @@
   const hostname = window.location.hostname;
   const defaultBackendUrl =
     hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
-      ? "http://localhost:4000"
+      ? "http://localhost:5000"
       : window.location.origin;
 
   // Backend URL used by the frontend. If not set by the host, default to the local backend.
