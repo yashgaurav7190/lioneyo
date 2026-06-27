@@ -28,7 +28,19 @@ import jwt from "jsonwebtoken";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const app = express();
-app.use(cors());
+const allowedOrigins = ["http://localhost:3000", "http://localhost:3001"];
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    },
+    credentials: true,
+  }),
+);
 app.use(express.json({ limit: "10mb" }));
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
@@ -102,17 +114,15 @@ app.post("/api/admin/change-password", requireAdmin, async (req, res) => {
   if (!user || !(await verifyPassword(current_password, user.password_hash))) {
     return res.status(401).json({ detail: "Current password incorrect" });
   }
-  await db
-    .collection("admins")
-    .updateOne(
-      { email: req.admin.email },
-      {
-        $set: {
-          password_hash: await hashPassword(new_password),
-          updated_at: nowIso(),
-        },
+  await db.collection("admins").updateOne(
+    { email: req.admin.email },
+    {
+      $set: {
+        password_hash: await hashPassword(new_password),
+        updated_at: nowIso(),
       },
-    );
+    },
+  );
   return res.json({ ok: true });
 });
 
@@ -632,17 +642,15 @@ app.post("/api/orders/verify", async (req, res) => {
       discount: order.referral_discount,
       created_at: nowIso(),
     });
-    await db
-      .collection("users")
-      .updateOne(
-        { referral_code: order.referral_code },
-        {
-          $inc: {
-            referral_count: 1,
-            referral_earnings: order.referral_discount || 0,
-          },
+    await db.collection("users").updateOne(
+      { referral_code: order.referral_code },
+      {
+        $inc: {
+          referral_count: 1,
+          referral_earnings: order.referral_discount || 0,
         },
-      );
+      },
+    );
   }
 
   if (GOOGLE_SHEETS_WEBHOOK) {
@@ -758,8 +766,19 @@ app.use((err, req, res, next) => {
 async function start() {
   await connectDb();
   await getSettings();
-  app.listen(PORT, () => {
+
+  const server = app.listen(PORT, () => {
     console.log(`Node backend listening on http://localhost:${PORT}`);
+  });
+
+  server.on("error", (error) => {
+    if (error && error.code === "EADDRINUSE") {
+      console.error(
+        `Port ${PORT} is already in use. Stop the existing process or run with a different PORT.`,
+      );
+      process.exit(1);
+    }
+    throw error;
   });
 }
 
