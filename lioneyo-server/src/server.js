@@ -48,7 +48,7 @@ async function start() {
   await connectDb();
   await getSettings();
 
-  const server = app.listen(PORT, () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(`Node backend listening on http://localhost:${PORT}`);
   });
 
